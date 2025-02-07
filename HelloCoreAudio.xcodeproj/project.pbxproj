@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		1C410D312D55D2BD000B3EEA /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C410D302D55D2BD000B3EEA /* CoreAudio.framework */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXCopyFilesBuildPhase section */
 		1C410D232D55D292000B3EEA /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -20,12 +24,13 @@
 
 /* Begin PBXFileReference section */
 		1C410D252D55D292000B3EEA /* HelloCoreAudio */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = HelloCoreAudio; sourceTree = BUILT_PRODUCTS_DIR; };
+		1C410D302D55D2BD000B3EEA /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		1C410D272D55D292000B3EEA /* HelloCoreAudio */ = {
+		1C410D272D55D292000B3EEA /* src */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = HelloCoreAudio;
+			path = src;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -35,6 +40,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1C410D312D55D2BD000B3EEA /* CoreAudio.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -44,7 +50,8 @@
 		1C410D1C2D55D292000B3EEA = {
 			isa = PBXGroup;
 			children = (
-				1C410D272D55D292000B3EEA /* HelloCoreAudio */,
+				1C410D272D55D292000B3EEA /* src */,
+				1C410D2F2D55D2BD000B3EEA /* Frameworks */,
 				1C410D262D55D292000B3EEA /* Products */,
 			);
 			sourceTree = "<group>";
@@ -55,6 +62,14 @@
 				1C410D252D55D292000B3EEA /* HelloCoreAudio */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		1C410D2F2D55D2BD000B3EEA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				1C410D302D55D2BD000B3EEA /* CoreAudio.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -73,7 +88,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				1C410D272D55D292000B3EEA /* HelloCoreAudio */,
+				1C410D272D55D292000B3EEA /* src */,
 			);
 			name = HelloCoreAudio;
 			packageProductDependencies = (
