@@ -80,12 +80,23 @@ func checkFlags(flags: AudioFormatFlags, expected: AudioFormatFlags) -> Bool {
 }
 
 struct AudioInputDevice {
-    var id: UInt32
-    var isDefault: Bool
-    var manufacturer: String
-    var name: String
-    var inputStreamFormat: AudioStreamBasicDescription
-    //    var inputStreamConfiguration: AudioBufferList
+    let id: UInt32
+    let isDefault: Bool
+    let manufacturer: String
+    let name: String
+    let streamConfiguration: AudioBufferList
+    let streamFormat: AudioStreamBasicDescription?
+    var isSupportedFormat: Bool {
+        if let streamFormat = streamFormat {
+            streamFormat.mFormatID == kAudioFormatLinearPCM
+                && checkFlags(
+                    flags: streamFormat.mFormatFlags,
+                    expected: kLinearPCMFormatFlagIsFloat
+                        | kLinearPCMFormatFlagIsPacked)
+        } else {
+            false
+        }
+    }
 }
 
 var defaultDeviceIdAddress = buildPropertyAddress(
@@ -169,12 +180,12 @@ let inputDevices: [AudioInputDevice] = deviceIds.compactMap { deviceId in
         isDefault: deviceId == defaultDeviceId,
         manufacturer: manufacturer,
         name: name,
-        inputStreamFormat: streamFormat!
-    )
+        streamConfiguration: streamConfiguration,
+        streamFormat: streamFormat)
 }
 
 for device in inputDevices {
-    print(device)
+    print(device, device.isSupportedFormat)
 }
 
 var procId: AudioDeviceIOProcID?
