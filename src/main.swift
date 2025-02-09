@@ -1,8 +1,9 @@
 import CoreAudio
 import Foundation
 
-// https://gist.github.com/SteveTrewick/c0668ee438eb784cbc5fb4674f0c2cd1
-// https://github.com/AudioKit/AudioKit/blob/main/Sources/AudioKit/Internals/Hardware/DeviceUtils.swift
+// Inspired by:
+// - https://gist.github.com/SteveTrewick/c0668ee438eb784cbc5fb4674f0c2cd1
+// - https://github.com/AudioKit/AudioKit/blob/main/Sources/AudioKit/Internals/Hardware/DeviceUtils.swift
 
 func getAudioObjectPropertyDataSize(
     id: AudioObjectID,
@@ -99,19 +100,19 @@ struct AudioInputDevice {
     }
 }
 
-var defaultDeviceIdAddress = buildPropertyAddress(
+var defaultInputDeviceIdAddress = buildPropertyAddress(
     kAudioHardwarePropertyDefaultInputDevice)
-let defaultDeviceId = getAudioObjectPropertyDataItem(
+let defaultInputDeviceId = getAudioObjectPropertyDataItem(
     id: AudioObjectID(kAudioObjectSystemObject),
-    address: &defaultDeviceIdAddress,
+    address: &defaultInputDeviceIdAddress,
     type: AudioDeviceID.self)
 
+// Passing the input scope doesn't limit to devices with inputs...
 var deviceIdsAddress = buildPropertyAddress(kAudioHardwarePropertyDevices)
 let deviceIds = getAudioObjectPropertyDataArray(
     id: AudioObjectID(kAudioObjectSystemObject),
     address: &deviceIdsAddress,
-    type: UInt32.self
-)
+    type: UInt32.self)
 
 let inputDevices: [AudioInputDevice] = deviceIds.compactMap { deviceId in
     var inputConfigurationAddress = buildPropertyAddress(
@@ -119,10 +120,9 @@ let inputDevices: [AudioInputDevice] = deviceIds.compactMap { deviceId in
     let inputConfiguration = getAudioObjectPropertyDataItem(
         id: deviceId,
         address: &inputConfigurationAddress,
-        type: AudioBufferList.self
-    )
-    // Trying to get the input stream format for devices that don't have inputs logs errors (but doesn't throw)
-    if inputConfiguration == nil {
+        type: AudioBufferList.self)
+    // Trying to get the input stream format for devices that don't have inputs causes errors
+    guard let streamConfiguration = inputConfiguration else {
         return nil
     }
 
@@ -131,8 +131,7 @@ let inputDevices: [AudioInputDevice] = deviceIds.compactMap { deviceId in
     let streamFormat = getAudioObjectPropertyDataItem(
         id: deviceId,
         address: &streamFormatAddress,
-        type: AudioStreamBasicDescription.self
-    )
+        type: AudioStreamBasicDescription.self)
 
     var manufacturerAddress = buildPropertyAddress(
         kAudioDevicePropertyDeviceManufacturerCFString)
@@ -144,40 +143,11 @@ let inputDevices: [AudioInputDevice] = deviceIds.compactMap { deviceId in
     let name = getAudioObjectPropertyDataString(
         id: deviceId,
         address: &nameAddress,
-        fallback: "???"
-    )
-
-    //    let defaultMarker = deviceId == defaultDeviceId ? " *" : ""
-    //    print("\(manufacturer) - \(name)\(defaultMarker) (\(deviceId))")
-
-    //    if let inputConfiguration = inputConfiguration {
-    //        print("\(inputConfiguration.mBuffers.mNumberChannels) inputs")
-    //    }
-
-    //    var outputConfigurationAddress = buildAddress(
-    //        kAudioDevicePropertyStreamConfiguration, kAudioDevicePropertyScopeOutput
-    //    )
-    //    let outputConfiguration = getAudioObjectPropertyDataItem(
-    //        id: deviceId,
-    //        address: &outputConfigurationAddress,
-    //        type: AudioBufferList.self
-    //    )
-    //    if let outputConfiguration = outputConfiguration {
-    //        print("\(outputConfiguration.mBuffers.mNumberChannels) outputs")
-    //    }
-
-    //    if let streamFormat = streamFormat {
-    //        //        print("stream format: \(streamFormat)")
-    //        let is32BitFloat = checkFlags(
-    //            flags: streamFormat.mFormatFlags,
-    //            expected: kAudioFormatFlagsNativeFloatPacked
-    //        )
-    //        //        print("32-bit float? \(is32BitFloat)")
-    //    }
+        fallback: "???")
 
     return AudioInputDevice(
         id: deviceId,
-        isDefault: deviceId == defaultDeviceId,
+        isDefault: deviceId == defaultInputDeviceId,
         manufacturer: manufacturer,
         name: name,
         streamConfiguration: streamConfiguration,
