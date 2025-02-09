@@ -188,10 +188,26 @@ for device in inputDevices {
     print(device, device.isSupportedFormat)
 }
 
-var procId: AudioDeviceIOProcID?
+if let defaultDeviceId = defaultInputDeviceId {
+    var procId: AudioDeviceIOProcID?
+    AudioDeviceCreateIOProcIDWithBlock(&procId, defaultDeviceId, nil) {
+        inNow, inInputData, inInputTime, outOutputData, inOutputTime in
 
-//AudioDeviceCreateIOProcIDWithBlock(&procId, defaultDeviceId!, nil) {
-//    inNow, inInputData, inInputTime, outOutputData, inOutputTime in
-//
-//    print("hello \(String(describing: inInputData.pointee.mBuffers.mData))")
-//}
+        let buffer = inInputData.pointee.mBuffers
+        let count = Int(buffer.mDataByteSize) / MemoryLayout<Float32>.size
+        if let data = buffer.mData {
+            let pointer = data.bindMemory(
+                to: Float32.self,
+                capacity: count)
+            let samples = Array(
+                UnsafeBufferPointer(start: pointer, count: count))
+            // Now we have samples interleaved by channel!
+            print("Sample \(samples[0])")
+        }
+    }
+    AudioDeviceStart(defaultDeviceId, procId)
+
+    RunLoop.current.run()
+} else {
+    print("No default input device")
+}
