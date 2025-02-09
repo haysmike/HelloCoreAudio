@@ -56,10 +56,9 @@ func getAudioObjectPropertyDataString(
     address: inout AudioObjectPropertyAddress,
     fallback: String
 ) -> String {
-    let array = getAudioObjectPropertyDataArray(
+    let string = getAudioObjectPropertyDataItem(
         id: id, address: &address, type: CFString.self)
-    assert(array.count < 2)
-    return if let string = array.first {
+    return if let string = string {
         string as String
     } else {
         fallback
