@@ -10,7 +10,7 @@ func getAudioObjectPropertyDataSize(
 ) -> UInt32 {
     var size: UInt32 = 0
     let status = AudioObjectGetPropertyDataSize(id, &address, 0, nil, &size)
-    if status != 0 {
+    if status != noErr {
         print("AudioObjectGetPropertyDataSize error: \(status)")
     }
     return size
@@ -28,7 +28,7 @@ func getAudioObjectPropertyDataArray<T>(
     // but that doesn't work well with generics (since it's hard to allocate arrays of generics)
     let buffer = UnsafeMutablePointer<T>.allocate(capacity: count)
     let status = AudioObjectGetPropertyData(id, &address, 0, nil, &size, buffer)
-    if status != 0 {
+    if status != noErr {
         print("getAudioObjectPropertyData error: \(status)")
     }
     let array = Array(UnsafeBufferPointer(start: buffer, count: count))
@@ -40,99 +40,144 @@ func getAudioObjectPropertyDataItem<T>(
     id: AudioObjectID,
     address: inout AudioObjectPropertyAddress,
     type: T.Type
-) -> [T] {
-    var size = getAudioObjectPropertyDataSize(id: id, address: &address)
-    if size != 1 {
-        print("error: size was \(size)")
-        // TODO throw?
-    }
-    let count = Int(size) / MemoryLayout<T>.size
-    let buffer = UnsafeMutablePointer<T>.allocate(capacity: count)
-    let status = AudioObjectGetPropertyData(
-        id,
-        &address,
-        0,
-        nil,
-        &size,
-        buffer
-    )
-    if status != 0 {
-        print("getAudioObjectPropertyData error: \(status)")
-    }
-    return Array(UnsafeBufferPointer(start: buffer, count: count))
+) -> T? {
+    let array = getAudioObjectPropertyDataArray(
+        id: id, address: &address, type: type)
+    assert(array.count < 2)
+    return array.first
 }
 
-func buildAddressFromSelector(
-    selector: AudioObjectPropertySelector,
-    scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal
+func getAudioObjectPropertyDataString(
+    id: AudioObjectID,
+    address: inout AudioObjectPropertyAddress,
+    fallback: String
+) -> String {
+    let array = getAudioObjectPropertyDataArray(
+        id: id, address: &address, type: CFString.self)
+    assert(array.count < 2)
+    return if let string = array.first {
+        string as String
+    } else {
+        fallback
+    }
+}
+
+func buildPropertyAddress(
+    _ selector: AudioObjectPropertySelector,
+    _ scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal
 ) -> AudioObjectPropertyAddress {
     return AudioObjectPropertyAddress(
         mSelector: selector,
         mScope: scope,
-        mElement: kAudioObjectPropertyElementMain
-    )
+        mElement: kAudioObjectPropertyElementMain)
 }
 
-var defaultDeviceIdAddress = buildAddressFromSelector(
-    selector: kAudioHardwarePropertyDefaultInputDevice)
-let defaultDeviceId = getAudioObjectPropertyDataArray(
+func checkFlags(flags: AudioFormatFlags, expected: AudioFormatFlags) -> Bool {
+    return flags & expected == expected
+}
+
+struct AudioInputDevice {
+    var id: UInt32
+    var isDefault: Bool
+    var manufacturer: String
+    var name: String
+    var inputStreamFormat: AudioStreamBasicDescription
+    //    var inputStreamConfiguration: AudioBufferList
+}
+
+var defaultDeviceIdAddress = buildPropertyAddress(
+    kAudioHardwarePropertyDefaultInputDevice)
+let defaultDeviceId = getAudioObjectPropertyDataItem(
     id: AudioObjectID(kAudioObjectSystemObject),
     address: &defaultDeviceIdAddress,
     type: AudioDeviceID.self)
 
-print("Got device ID \(defaultDeviceId)")
-
-var deviceIdsAddress = buildAddressFromSelector(
-    selector: kAudioHardwarePropertyDevices)
+var deviceIdsAddress = buildPropertyAddress(kAudioHardwarePropertyDevices)
 let deviceIds = getAudioObjectPropertyDataArray(
     id: AudioObjectID(kAudioObjectSystemObject),
     address: &deviceIdsAddress,
     type: UInt32.self
 )
 
-for deviceId in deviceIds {
-    var manufacturerAddress = buildAddressFromSelector(
-        selector: kAudioDevicePropertyDeviceManufacturerCFString)
-    let manufacturer = getAudioObjectPropertyDataArray(
-        id: deviceId,
-        address: &manufacturerAddress,
-        type: CFString.self
-    )
-
-    var nameAddress = buildAddressFromSelector(
-        selector: kAudioDevicePropertyDeviceNameCFString)
-    let name = getAudioObjectPropertyDataArray(
-        id: deviceId,
-        address: &nameAddress,
-        type: CFString.self
-    )
-
-    let defaultMarker = deviceId == defaultDeviceId.first ? " *" : ""
-    print("\(manufacturer) - \(name)\(defaultMarker)")
-
-    var inputConfigurationAddress = buildAddressFromSelector(
-        selector: kAudioDevicePropertyStreamConfiguration,
-        scope: kAudioDevicePropertyScopeInput
-    )
-    let inputConfiguration = getAudioObjectPropertyDataArray(
+let inputDevices: [AudioInputDevice] = deviceIds.compactMap { deviceId in
+    var inputConfigurationAddress = buildPropertyAddress(
+        kAudioDevicePropertyStreamConfiguration, kAudioDevicePropertyScopeInput)
+    let inputConfiguration = getAudioObjectPropertyDataItem(
         id: deviceId,
         address: &inputConfigurationAddress,
         type: AudioBufferList.self
     )
-    for configuration in inputConfiguration {
-        print("\(configuration.mBuffers.mNumberChannels) inputs")
+    // Trying to get the input stream format for devices that don't have inputs logs errors (but doesn't throw)
+    if inputConfiguration == nil {
+        return nil
     }
 
-    var outputConfigurationAddress = buildAddressFromSelector(
-        selector: kAudioDevicePropertyStreamConfiguration,
-        scope: kAudioDevicePropertyScopeOutput
-    )
-    let outputConfiguration = getAudioObjectPropertyDataArray(
+    var streamFormatAddress = buildPropertyAddress(
+        kAudioDevicePropertyStreamFormat, kAudioDevicePropertyScopeInput)
+    let streamFormat = getAudioObjectPropertyDataItem(
         id: deviceId,
-        address: &outputConfigurationAddress,
-        type: AudioBufferList.self
+        address: &streamFormatAddress,
+        type: AudioStreamBasicDescription.self
     )
-    for configuration in outputConfiguration {
-        print("\(configuration.mBuffers.mNumberChannels) outputs")
-    }
+
+    var manufacturerAddress = buildPropertyAddress(
+        kAudioDevicePropertyDeviceManufacturerCFString)
+    let manufacturer = getAudioObjectPropertyDataString(
+        id: deviceId, address: &manufacturerAddress, fallback: "???")
+
+    var nameAddress = buildPropertyAddress(
+        kAudioDevicePropertyDeviceNameCFString)
+    let name = getAudioObjectPropertyDataString(
+        id: deviceId,
+        address: &nameAddress,
+        fallback: "???"
+    )
+
+    //    let defaultMarker = deviceId == defaultDeviceId ? " *" : ""
+    //    print("\(manufacturer) - \(name)\(defaultMarker) (\(deviceId))")
+
+    //    if let inputConfiguration = inputConfiguration {
+    //        print("\(inputConfiguration.mBuffers.mNumberChannels) inputs")
+    //    }
+
+    //    var outputConfigurationAddress = buildAddress(
+    //        kAudioDevicePropertyStreamConfiguration, kAudioDevicePropertyScopeOutput
+    //    )
+    //    let outputConfiguration = getAudioObjectPropertyDataItem(
+    //        id: deviceId,
+    //        address: &outputConfigurationAddress,
+    //        type: AudioBufferList.self
+    //    )
+    //    if let outputConfiguration = outputConfiguration {
+    //        print("\(outputConfiguration.mBuffers.mNumberChannels) outputs")
+    //    }
+
+    //    if let streamFormat = streamFormat {
+    //        //        print("stream format: \(streamFormat)")
+    //        let is32BitFloat = checkFlags(
+    //            flags: streamFormat.mFormatFlags,
+    //            expected: kAudioFormatFlagsNativeFloatPacked
+    //        )
+    //        //        print("32-bit float? \(is32BitFloat)")
+    //    }
+
+    return AudioInputDevice(
+        id: deviceId,
+        isDefault: deviceId == defaultDeviceId,
+        manufacturer: manufacturer,
+        name: name,
+        inputStreamFormat: streamFormat!
+    )
 }
+
+for device in inputDevices {
+    print(device)
+}
+
+var procId: AudioDeviceIOProcID?
+
+//AudioDeviceCreateIOProcIDWithBlock(&procId, defaultDeviceId!, nil) {
+//    inNow, inInputData, inInputTime, outOutputData, inOutputTime in
+//
+//    print("hello \(String(describing: inInputData.pointee.mBuffers.mData))")
+//}
