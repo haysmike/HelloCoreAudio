@@ -23,17 +23,21 @@ func getAudioObjectPropertyDataArray<T>(
 ) -> [T] {
     var size = getAudioObjectPropertyDataSize(id: id, address: &address)
     let count = Int(size) / MemoryLayout<T>.size
+    return withUnsafeTemporaryAllocation(of: type, capacity: count) {
+        bufferPointer in
 
-    // TODO Apparently it's safer to use `.withUnsafeMutableBufferPointer {}`,
-    // but that doesn't work well with generics (since it's hard to allocate arrays of generics)
-    let buffer = UnsafeMutablePointer<T>.allocate(capacity: count)
-    let status = AudioObjectGetPropertyData(id, &address, 0, nil, &size, buffer)
-    if status != noErr {
-        print("getAudioObjectPropertyData error: \(status)")
+        if let pointer = bufferPointer.baseAddress {
+            let status = AudioObjectGetPropertyData(
+                id, &address, 0, nil, &size, pointer)
+            if status != noErr {
+                print("getAudioObjectPropertyData error: \(status)")
+                return []
+            }
+            return Array(bufferPointer)
+        } else {
+            return []
+        }
     }
-    let array = Array(UnsafeBufferPointer(start: buffer, count: count))
-    buffer.deallocate()
-    return array
 }
 
 func getAudioObjectPropertyDataItem<T>(
