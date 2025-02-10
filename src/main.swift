@@ -76,10 +76,6 @@ func buildPropertyAddress(
         mElement: kAudioObjectPropertyElementMain)
 }
 
-func checkFlags(flags: AudioFormatFlags, expected: AudioFormatFlags) -> Bool {
-    return flags & expected == expected
-}
-
 struct AudioInputDevice {
     let id: UInt32
     let isDefault: Bool
@@ -97,6 +93,12 @@ struct AudioInputDevice {
         } else {
             false
         }
+    }
+
+    private func checkFlags(flags: AudioFormatFlags, expected: AudioFormatFlags)
+        -> Bool
+    {
+        return flags & expected == expected
     }
 }
 
